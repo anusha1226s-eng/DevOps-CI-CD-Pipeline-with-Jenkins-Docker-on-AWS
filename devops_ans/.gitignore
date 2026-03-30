@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+sample-python-app/dist/
+sample-python-app/build/
+sample-python-app/*.egg-info/

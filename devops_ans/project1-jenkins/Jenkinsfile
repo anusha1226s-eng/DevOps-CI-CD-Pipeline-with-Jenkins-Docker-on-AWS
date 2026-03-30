@@ -1,0 +1,98 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    // This lets GitHub webhook pushes trigger the pipeline automatically.
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        APP_NAME = 'devops-miniapp'
+        REMOTE_APP_DIR = '/opt/devops-miniapp'
+    }
+
+    parameters {
+        string(name: 'REMOTE_HOST', defaultValue: '3.27.208.170', description: 'Public IP or DNS of test server (required)')
+        string(name: 'REMOTE_USER', defaultValue: 'ubuntu', description: 'SSH user on test server')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Artifact') {
+            steps {
+                sh '''
+                    set -euxo pipefail
+                    python3 -m venv .venv
+                    . .venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r sample-python-app/requirements.txt
+                    cd sample-python-app
+                    python -m build
+                    ls -lh dist
+                '''
+            }
+        }
+
+        stage('Light Test') {
+            steps {
+                sh '''
+                    set -euxo pipefail
+                    . .venv/bin/activate
+                    cd sample-python-app
+                    pytest -q tests/test_smoke.py
+                '''
+            }
+        }
+
+        stage('Archive Artifact') {
+            steps {
+                archiveArtifacts artifacts: 'sample-python-app/dist/*.whl', fingerprint: true
+            }
+        }
+
+        stage('Deploy To Test Server') {
+            steps {
+                // Configure Jenkins credential ID 'test-server-ssh-key' as SSH private key.
+                sshagent(credentials: ['test-server-ssh-key']) {
+                    sh '''
+                        set -euxo pipefail
+                        test -n "$REMOTE_HOST"
+                        ARTIFACT_PATH=$(ls sample-python-app/dist/*.whl | head -n1)
+                        ARTIFACT_FILE=$(basename "$ARTIFACT_PATH")
+
+                        # Copy wheel artifact to remote host release directory.
+                        ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "mkdir -p $REMOTE_APP_DIR/releases"
+                        scp -o StrictHostKeyChecking=no "$ARTIFACT_PATH" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_APP_DIR/releases/$ARTIFACT_FILE"
+
+                        # Run remote install/restart script and fail pipeline if it fails.
+                        cat project1-jenkins/scripts/remote_install_and_restart.sh | \
+                        ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" \
+                        "bash -s -- $APP_NAME $REMOTE_APP_DIR $ARTIFACT_FILE"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment succeeded: artifact built, transferred, and service health check passed.'
+        }
+        failure {
+            echo 'Deployment failed: review Jenkins console logs for the failed stage.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

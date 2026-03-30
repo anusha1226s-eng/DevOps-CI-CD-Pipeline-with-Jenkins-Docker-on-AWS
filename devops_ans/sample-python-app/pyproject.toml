@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devops-miniapp"
+version = "0.1.0"
+description = "Reusable sample Python app for CI/CD and Docker demos"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "flask==3.0.3",
+  "gunicorn==22.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
