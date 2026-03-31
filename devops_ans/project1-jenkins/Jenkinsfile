@@ -13,7 +13,7 @@ pipeline {
 
     environment {
         APP_NAME = 'devops-miniapp'
-        REMOTE_APP_DIR = '/opt/devops-miniapp'
+        REMOTE_APP_DIR = '/home/ubuntu/devops-miniapp'
     }
 
     parameters {
