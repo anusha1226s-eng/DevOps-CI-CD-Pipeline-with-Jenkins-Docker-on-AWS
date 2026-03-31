@@ -28,6 +28,31 @@ pipeline {
             }
         }
 
+        stage('Resolve Paths') {
+            steps {
+                script {
+                    if (fileExists('sample-python-app/requirements.txt')) {
+                        env.APP_DIR = 'sample-python-app'
+                    } else if (fileExists('devops_ans/sample-python-app/requirements.txt')) {
+                        env.APP_DIR = 'devops_ans/sample-python-app'
+                    } else {
+                        error('Could not find sample-python-app/requirements.txt in expected locations')
+                    }
+
+                    if (fileExists('project1-jenkins/scripts/remote_install_and_restart.sh')) {
+                        env.PIPELINE_DIR = 'project1-jenkins'
+                    } else if (fileExists('devops_ans/project1-jenkins/scripts/remote_install_and_restart.sh')) {
+                        env.PIPELINE_DIR = 'devops_ans/project1-jenkins'
+                    } else {
+                        error('Could not find remote_install_and_restart.sh in expected locations')
+                    }
+
+                    echo "Using APP_DIR=${env.APP_DIR}"
+                    echo "Using PIPELINE_DIR=${env.PIPELINE_DIR}"
+                }
+            }
+        }
+
         stage('Build Artifact') {
             steps {
                 sh '''
@@ -35,8 +60,8 @@ pipeline {
                     python3 -m venv .venv
                     . .venv/bin/activate
                     pip install --upgrade pip
-                    pip install -r sample-python-app/requirements.txt
-                    cd sample-python-app
+                    pip install -r "$APP_DIR/requirements.txt"
+                    cd "$APP_DIR"
                     python -m build
                     ls -lh dist
                 '''
@@ -48,7 +73,7 @@ pipeline {
                 sh '''
                     set -eux
                     . .venv/bin/activate
-                    cd sample-python-app
+                    cd "$APP_DIR"
                     pytest -q tests/test_smoke.py
                 '''
             }
@@ -56,7 +81,7 @@ pipeline {
 
         stage('Archive Artifact') {
             steps {
-                archiveArtifacts artifacts: 'sample-python-app/dist/*.whl', fingerprint: true
+                archiveArtifacts artifacts: "${env.APP_DIR}/dist/*.whl", fingerprint: true
             }
         }
 
@@ -67,7 +92,7 @@ pipeline {
                     sh '''
                         set -eux
                         test -n "$REMOTE_HOST"
-                        ARTIFACT_PATH=$(ls sample-python-app/dist/*.whl | head -n1)
+                        ARTIFACT_PATH=$(ls "$APP_DIR"/dist/*.whl | head -n1)
                         ARTIFACT_FILE=$(basename "$ARTIFACT_PATH")
 
                         # Copy wheel artifact to remote host release directory.
@@ -75,7 +100,7 @@ pipeline {
                         scp -o StrictHostKeyChecking=no "$ARTIFACT_PATH" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_APP_DIR/releases/$ARTIFACT_FILE"
 
                         # Run remote install/restart script and fail pipeline if it fails.
-                        cat project1-jenkins/scripts/remote_install_and_restart.sh | \
+                        cat "$PIPELINE_DIR/scripts/remote_install_and_restart.sh" | \
                         ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" \
                         "bash -s -- $APP_NAME $REMOTE_APP_DIR $ARTIFACT_FILE"
                     '''
