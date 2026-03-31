@@ -1,10 +1,10 @@
 pipeline {
     agent any
 
-   options {
-    timestamps()
-}
-
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
 
     // This lets GitHub webhook pushes trigger the pipeline automatically.
     triggers {
@@ -31,7 +31,7 @@ pipeline {
         stage('Build Artifact') {
             steps {
                 sh '''
-                    set -euxo pipefail
+                    set -eux
                     python3 -m venv .venv
                     . .venv/bin/activate
                     pip install --upgrade pip
@@ -46,7 +46,7 @@ pipeline {
         stage('Light Test') {
             steps {
                 sh '''
-                    set -euxo pipefail
+                    set -eux
                     . .venv/bin/activate
                     cd sample-python-app
                     pytest -q tests/test_smoke.py
@@ -65,7 +65,7 @@ pipeline {
                 // Configure Jenkins credential ID 'test-server-ssh-key' as SSH private key.
                 sshagent(credentials: ['test-server-ssh-key']) {
                     sh '''
-                        set -euxo pipefail
+                        set -eux
                         test -n "$REMOTE_HOST"
                         ARTIFACT_PATH=$(ls sample-python-app/dist/*.whl | head -n1)
                         ARTIFACT_FILE=$(basename "$ARTIFACT_PATH")
