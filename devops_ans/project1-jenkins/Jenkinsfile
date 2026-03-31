@@ -5,15 +5,6 @@ pipeline {
     timestamps()
 }
 
-stages {
-    stage('Example') {
-        steps {
-            ansiColor('xterm') {
-                sh 'echo "Hello World"'
-            }
-        }
-    }
-}
 
     // This lets GitHub webhook pushes trigger the pipeline automatically.
     triggers {
