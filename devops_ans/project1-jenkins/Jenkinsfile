@@ -17,7 +17,7 @@ pipeline {
     }
 
     parameters {
-        string(name: 'REMOTE_HOST', defaultValue: '3.27.208.170', description: 'Public IP or DNS of test server (required)')
+        string(name: 'REMOTE_HOST', defaultValue: '3.27.41.96', description: 'Public IP or DNS of test server (required)')
         string(name: 'REMOTE_USER', defaultValue: 'ubuntu', description: 'SSH user on test server')
     }
 
